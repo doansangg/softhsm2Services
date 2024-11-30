@@ -1,4 +1,4 @@
-# Camera Management Services
+# SoftHsm2 Services
 
 ## Getting Started
 1. Run the project using `python manage.py runserver` and you should see the success page URL provided in terminal.
