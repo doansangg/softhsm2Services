@@ -22,6 +22,7 @@ class signature_SoftHSM(models.Model):
     signingInput = models.TextField()
     signatureAlgorithm = models.CharField(max_length=20)
     alias = models.CharField(max_length=20)
+    sharedSecret = models.CharField(max_length=200)
     sig = models.TextField()
     def __str__(self):
         return self.accessToken
