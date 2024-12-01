@@ -20,11 +20,16 @@ class SoftHsmViewSet(viewsets.ViewSet):
     Additionally we also provide an extra `checkBody` action.
     """
     # all swagger's parameters should be defined here
-    sw_accessToken_code = openapi.Parameter(
-        name='accessToken', type=openapi.TYPE_STRING, default='softhsm2-atnv', description="Token", in_=openapi.IN_QUERY)
+    sw_tokenLabel_code = openapi.Parameter(
+        name='tokenLabel', type=openapi.TYPE_STRING, default="My token 1", description="Token Label", in_=openapi.IN_QUERY)
+    sw_keyLabel_code = openapi.Parameter(
+        name='keyLabel', type=openapi.TYPE_STRING, default="MyKey", description="Key Label", in_=openapi.IN_QUERY)
+    sw_keyLength_code = openapi.Parameter(
+        name='keyLength', type=openapi.TYPE_INTEGER, default=2024, description="Key Length", in_=openapi.IN_QUERY)
+    sw_pin_code = openapi.Parameter(
+        name='pin', type=openapi.TYPE_STRING, default="12345678", description="pin", in_=openapi.IN_QUERY)    
     sw_signatureAlgorithm_code = openapi.Parameter(
-        name='signatureAlgorithm', type=openapi.TYPE_STRING, default='RS256', description="HS256, HS384, HS512, RS256, \
-            RS384, RS512, ES256, ES384, ES512", in_=openapi.IN_QUERY)
+        name='signatureAlgorithm', type=openapi.TYPE_STRING, default='RSA', description="CKM_SHA256_RSA_PKCS", in_=openapi.IN_QUERY)
     sw_expirationTime_code = openapi.Parameter(
         name='expirationTime', type=openapi.TYPE_INTEGER, default=1462916947752, description="Expiration Time", in_=openapi.IN_QUERY)
     sw_signingInput_code = openapi.Parameter(
@@ -36,7 +41,7 @@ class SoftHsmViewSet(viewsets.ViewSet):
     sw_alg_code = openapi.Parameter(
         name='alg', type=openapi.TYPE_STRING, default="ES256", description="alg", in_=openapi.IN_QUERY)
     sw_kid_code = openapi.Parameter(
-        name='kid', type=openapi.TYPE_STRING, default="f6ade591-4230-4114-8147-316dde969395", description="kid", in_=openapi.IN_QUERY)
+        name='kid', type=openapi.TYPE_STRING, default="SvXQCmahu/8=", description="kid", in_=openapi.IN_QUERY)
     sw_use_code = openapi.Parameter(
         name='use', type=openapi.TYPE_STRING, default="sig", description="use", in_=openapi.IN_QUERY)
     sw_kty_code = openapi.Parameter(
@@ -70,48 +75,56 @@ class SoftHsmViewSet(viewsets.ViewSet):
         status.HTTP_200_OK: 'JSON',
     }
 
-    @swagger_auto_schema(method='POST', manual_parameters=[sw_accessToken_code, sw_signatureAlgorithm_code, sw_expirationTime_code], responses=post_response)
+    @swagger_auto_schema(method='POST', manual_parameters=[ sw_signatureAlgorithm_code, sw_expirationTime_code, sw_keyLabel_code, sw_pin_code, sw_tokenLabel_code, sw_keyLength_code], responses=post_response)
     @action(methods=['POST'], detail=False, url_path='gen-key')
     def gen_key_from_softhsm2(self, request):
         try:
-            accessToken = request.query_params.get('accessToken')
             signatureAlgorithm = request.query_params.get('signatureAlgorithm')
             expirationTime = request.query_params.get('expirationTime')
-            kid = gen_key_softhsm2()
-            if kid is None:
+            keyLabel = request.query_params.get('keyLabel')
+            pin = request.query_params.get('pin')
+            tokenLabel = request.query_params.get('tokenLabel')
+            keyLength = request.query_params.get('keyLength')
+            result = gen_key_softhsm2(tokenLabel, pin, signatureAlgorithm, expirationTime, keyLabel, keyLength)
+            if result is None:
                 return Response(data={}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             print("ERROR:", e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(data={kid}, status=status.HTTP_200_OK)
+        return Response(data=result, status=status.HTTP_200_OK)
     
-    @swagger_auto_schema(method='POST', manual_parameters=[sw_accessToken_code, sw_signatureAlgorithm_code, sw_signingInput_code, sw_alias_code, sw_sharedSecret_code], responses=post_response)
+    @swagger_auto_schema(method='POST', manual_parameters=[sw_signatureAlgorithm_code, sw_pin_code, sw_tokenLabel_code, sw_signingInput_code, sw_kid_code, sw_keyLabel_code], responses=post_response)
     @action(methods=['POST'], detail=False, url_path='signature')
     def signature_from_softhsm2(self, request):
         try:
-            accessToken = request.query_params.get('accessToken')
             signatureAlgorithm = request.query_params.get('signatureAlgorithm')
             signingInput = request.query_params.get('signingInput')
-            alias = request.query_params.get('alias')
-            sharedSecret = request.query_params.get('sharedSecret')
-            kid = signature_softhsm2()
-            if kid is None:
+            pin = request.query_params.get('pin')
+            tokenLabel = request.query_params.get('tokenLabel')
+            keyLabel = request.query_params.get('keyLabel')
+            kid = request.query_params.get('kid')
+
+            result = signature_softhsm2(tokenLabel, pin, signatureAlgorithm, kid, keyLabel, signingInput)
+            if result is None:
                 return Response(data={}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             print("ERROR:", e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(data={kid}, status=status.HTTP_200_OK)
+        return Response(data=result, status=status.HTTP_200_OK)
     
-    @swagger_auto_schema(method='POST', manual_parameters=[sw_accessToken_code, sw_signatureAlgorithm_code, sw_signingInput_code, sw_alias_code, sw_sharedSecret_code,\
-                                                           sw_alg_code, sw_kid_code, sw_use_code, sw_kty_code, sw_n_code, sw_e_code, sw_crv_code, sw_x_code, sw_y_code, sw_signatures_code], responses=post_response)
+    @swagger_auto_schema(method='POST', manual_parameters=[sw_tokenLabel_code, sw_pin_code, sw_signatureAlgorithm_code, sw_signingInput_code,\
+                                                           sw_alg_code, sw_kid_code, sw_use_code, sw_kty_code, sw_n_code, sw_e_code, sw_crv_code, \
+                                                            sw_x_code, sw_keyLabel_code, sw_y_code, sw_signatures_code], responses=post_response)
     @action(methods=['POST'], detail=False, url_path='verify-signature')
     def verify_signature_from_softhsm2(self, request):
         try:
-            accessToken = request.query_params.get('accessToken')
             signatureAlgorithm = request.query_params.get('signatureAlgorithm')
             signingInput = request.query_params.get('signingInput')
-            alias = request.query_params.get('alias')
-            sharedSecret = request.query_params.get('sharedSecret')
+            signatures = request.query_params.get('signatures')
+            keyLabel = request.query_params.get('keyLabel')
+            tokenLabel = request.query_params.get('tokenLabel')
+            pin = request.query_params.get('pin')
+            kid = request.query_params.get('kid')
             jwksRequestParam =  { 
             "keyRequestParams": {
                 "alg": request.query_params.get('alg'),
@@ -124,27 +137,27 @@ class SoftHsmViewSet(viewsets.ViewSet):
                 "x": request.query_params.get('x'),
                 "y": request.query_params.get('y')
             }}
-            kid = verify_signature_softhsm2()
-            signatures = request.query_params.get('signatures')
-            if kid is None:
+            result = verify_signature_softhsm2(tokenLabel, pin, signatureAlgorithm, kid, keyLabel, signingInput, signatures)
+            
+            if result is None:
                 return Response(data={}, status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             print("ERROR:", e)
             return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(data={kid}, status=status.HTTP_200_OK)
+        return Response(data=result, status=status.HTTP_200_OK)
 
-    @swagger_auto_schema(method='POST', manual_parameters=[sw_accessToken_code, sw_kid_code], responses=post_response)
-    @action(methods=['POST'], detail=False, url_path='gen-key')
-    def gen_key_from_softhsm2(self, request):
-        try:
-            accessToken = request.query_params.get('accessToken')
-            kid = request.query_params.get('kid')
-            kid = gen_key_softhsm2()
-            if kid is None:
-                return Response(data={}, status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            print("ERROR:", e)
-            return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(data={kid}, status=status.HTTP_200_OK)
-        return Response({"result":kid})
+    # @swagger_auto_schema(method='POST', manual_parameters=[sw_accessToken_code, sw_kid_code], responses=post_response)
+    # @action(methods=['POST'], detail=False, url_path='gen-key')
+    # def gen_key_from_softhsm2(self, request):
+    #     try:
+    #         accessToken = request.query_params.get('accessToken')
+    #         kid = request.query_params.get('kid')
+    #         kid = gen_key_softhsm2()
+    #         if kid is None:
+    #             return Response(data={}, status=status.HTTP_204_NO_CONTENT)
+    #     except Exception as e:
+    #         print("ERROR:", e)
+    #         return Response(data={}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    #     return Response(data={kid}, status=status.HTTP_200_OK)
+    #     return Response({"result":kid})
     
