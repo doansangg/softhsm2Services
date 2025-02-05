@@ -2,6 +2,11 @@
 
 ## Getting Started
 1. Run the project using `python manage.py runserver` and you should see the success page URL provided in terminal.
+2. Run docker softhsm2
+```
+docker run --name soft2 -it filancore/softhsm2:2.6.1-bookworm /bin/bash
+"/usr/local/lib/softhsm/libsofthsm2.so" 
+```
 
 
 ### Creating an App
